@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, format: email)
+    //   - displayName: string
+    //   - role: string (required, enum: ['student', 'admin'])
+    //   - qualifications: list (strings)
+    //   - income: number
+    //   - state: string
+    //   - area: string
+    //   - isVerified: bool
+    //   - createdAt: timestamp
+    //
+    // Collection: schemes
+    // Document ID: schemeId
+    // Fields:
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - category: string (required)
+    //   - eligibility: map
+    //   - salary: string
+    //   - deadline: timestamp
+    //   - createdAt: timestamp
+    //
+    // Collection: applications
+    // Document ID: applicationId
+    // Fields:
+    //   - userId: string (required)
+    //   - schemeId: string (required)
+    //   - status: string (required, enum: ['pending', 'verified', 'rejected'])
+    //   - submittedAt: timestamp
+    //   - remarks: string
+    //   - formData: map
+    //
+    // Collection: notifications
+    // Document ID: notificationId
+    // Fields:
+    //   - userId: string (required)
+    //   - title: string (required)
+    //   - message: string (required)
+    //   - read: bool
+    //   - createdAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "anshggupta1234@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid is string && 
+             data.email is string && (data.email == "" || isValidEmail(data.email)) &&
+             data.role in ['student', 'admin'] &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('income' in data) || data.income is number) &&
+             (!('state' in data) || data.state is string) &&
+             (!('area' in data) || data.area is string);
+    }
+
+    function isValidScheme(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.description is string && data.description.size() > 0 &&
+             data.category is string &&
+             (!('salary' in data) || data.salary is string);
+    }
+
+    function isValidApplication(data) {
+      return data.userId is string &&
+             data.schemeId is string &&
+             data.status in ['pending', 'verified', 'rejected'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == 'student' || isAdmin());
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) &&
+                    (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /schemes/{schemeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidScheme(request.resource.data);
+    }
+
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidApplication(request.resource.data);
+      allow update: if isAdmin() && isValidApplication(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

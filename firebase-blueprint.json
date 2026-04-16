@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information and qualifications",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "qualifications": { "type": "array", "items": { "type": "string" } },
+        "income": { "type": "number" },
+        "state": { "type": "string" },
+        "area": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Scheme": {
+      "title": "Scheme",
+      "description": "Government scheme or event details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "eligibility": {
+          "type": "object",
+          "properties": {
+            "minQualification": { "type": "string" },
+            "maxIncome": { "type": "number" },
+            "states": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "salary": { "type": "string" },
+        "category": { "type": "string" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "category"]
+    },
+    "Application": {
+      "title": "Application",
+      "description": "User application for a scheme",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "schemeId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "remarks": { "type": "string" },
+        "formData": { "type": "object" }
+      },
+      "required": ["userId", "schemeId", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/schemes/{schemeId}": {
+      "schema": "Scheme",
+      "description": "Government schemes"
+    },
+    "/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Scheme applications"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    }
+  }
+}
